@@ -109,21 +109,22 @@ def tobs():
 # Route accepts the start date as a parameter from the URL
 # Returns the min, max, and average temperatures calculated from the given start date to the end of the dataset
 @app.route("/api/v1.0/start")
-def start():
+def start(start_date):
     session = Session(engine)
-
-    temperatures = (session.query(measurement.date,func.min(measurement.tobs), func.max(measurement.tobs), func.avg(measurement.tobs)).\
-                  filter(measurement.date >= start).group_by(measurement.date).all())
+    
+    temperatures = session.query(func.min(measurement.tobs), func.avg(measurement.tobs), func.max(measurement.tobs)).filter(measurement.date >= start_date).all()
     
     session.close()
-
+    
+    # Query results to a dictionary
+    list = []
     for data in temperatures:
-        dict = {}
-        dict['Date'] = data[0]
-        dict['Tmin'] = data[1]
-        dict['Tavg'] = round(data[2],2)
-        dict['Tmax'] = data[3]
-        list.append(dict)
+        start_dict = {}
+        start_dict['Date'] = data[0]
+        start_dict['Min Temp'] = data[1]
+        start_dict['Avg Temp'] = round(data[2],2)
+        start_dict['Max Temp'] = data[3]
+        list.append(start_dict)
 
     #Return a JSON list
     return jsonify(list)
@@ -131,6 +132,7 @@ def start():
 # Start/end route
 # Route accepts the start and end dates as parameters from the URL
 # Returns the min, max, and average temperatures calculated from the given start date to the given end date
+
 
 
 if __name__ == "__main__":
