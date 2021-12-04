@@ -1,13 +1,15 @@
 # Climate App
 
 # Make necessary imports
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
 import numpy as np
 import datetime as dt
+
+from sqlalchemy.util.langhelpers import NoneType
 
 # Setup database
 # Generate the engine to correct sqlite file
@@ -34,14 +36,17 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
+    #return render_template("index.html")
     return (
         f"SQLAlchemy Challenge - Surfs Up!<br/>"
         f"Available Routes:<br/>"
         f"/api/v1.0/precipitation<br/>"
         f"/api/v1.0/stations<br/>"
         f"/api/v1.0/tobs<br/>"
-        f"/api/v1.0/start<br/>"
+        f"/api/v1.0/start_date<br/>"
         f"/api/v1.0/start_date/end_date<br/>"
+        f"<br>"
+        f"Note: Replace 'start date' and 'end date' with the query dates. The format for querying is 'YYYY-MM-DD'"
     )
 
 # Precipitation Data
@@ -108,31 +113,36 @@ def tobs():
 # Start route
 # Route accepts the start date as a parameter from the URL
 # Returns the min, max, and average temperatures calculated from the given start date to the end of the dataset
-@app.route("/api/v1.0/start")
-def start(start_date):
-    session = Session(engine)
-    
-    temperatures = session.query(func.min(measurement.tobs), func.avg(measurement.tobs), func.max(measurement.tobs)).filter(measurement.date >= start_date).all()
-    
-    session.close()
-    
-    # Query results to a dictionary
-    list = []
-    for data in temperatures:
-        start_dict = {}
-        start_dict['Date'] = data[0]
-        start_dict['Min Temp'] = data[1]
-        start_dict['Avg Temp'] = round(data[2],2)
-        start_dict['Max Temp'] = data[3]
-        list.append(start_dict)
-
-    #Return a JSON list
-    return jsonify(list)
-
 # Start/end route
 # Route accepts the start and end dates as parameters from the URL
 # Returns the min, max, and average temperatures calculated from the given start date to the given end date
+@app.route("/api/v1.0/<start_date>")
+@app.route("/api/v1.0/<start_date>/<end_date>")
+@app.route("/api/v1.0/")
+def start(start_date =None, end_date=None):
+    session = Session(engine)
+    if start_date is None:
+        start_date = "2000-01-01"
+        start_date = dt.datetime.strptime(start_date, "%Y-%m-%d")
+    if end_date is None: 
+        temp = (session.query(measurement.date, func.min(measurement.tobs), func.avg(measurement.tobs),func.max(measurement.tobs)).filter(measurement.date >= start_date).all())
+    else: 
+        end_date = dt.datetime.strptime(end_date, "%Y-%m-%d")
+        temp = (session.query(measurement.date, func.min(measurement.tobs), func.avg(measurement.tobs),func.max(measurement.tobs)).filter(measurement.date >= start_date).filter(measurement.date <= end_date).all())
+    
+    session.close()
+    
+    tobs_list = []
+    for temp_date, tmin, tavg, tmax in temp:
+        dict = {}
+        dict['Date'] = temp_date
+        dict['Tmin'] = tmin
+        dict['Tavg'] = tavg
+        dict['Tmax'] = tmax
+        tobs_list.append(dict)
 
+    #Return a JSON list
+    return jsonify(tobs_list)
 
 
 if __name__ == "__main__":
